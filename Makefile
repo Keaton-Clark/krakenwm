@@ -1,17 +1,17 @@
 SRC = $(wildcard ./src/*.c)
-INC = $(wildcard ./src/*.h)
 OBJ = $(SRC:.c=.o)
 CFLAGS = -ggdb -g3 
 LDLIBS = -lX11
+INC = $(wildcard ./src/*.h)
 CC = gcc
 TGT = $(shell basename `pwd`)
 
-$(TGT): $(OBJ)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS) && rm src/*.o
+$(TGT): 
+	$(CC) $(CFLAGS) -o $(TGT) $(SRC) $(LDLIBS)
 .PHONY: clean
 
 clean:
-	rm -f $(wildcard ./src/*.o) $(TGT) 
+	rm -f $(TGT) $(OBJ)
 
 install: $(TGT)
 	sudo mv $(TGT) /usr/local/bin

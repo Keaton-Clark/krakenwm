@@ -2,17 +2,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
+#include "bar.h"
+#include "handler.h"
 
 void init();
 void loop();
-static Display* dpy;
-static Window root;
-static int scrn;
-bool sendevent(Window win, Atom proto);
-void maprequest(XEvent* ev);
-void configurerequest(XEvent* ev);
-void buttonpress(XEvent* ev);
-void keypress(XEvent* ev);
+Display* dpy;
+int scrn;
 void tile();
 
 void (*handler[])(XEvent *ev) = {
@@ -20,13 +17,25 @@ void (*handler[])(XEvent *ev) = {
 	[MapRequest] = maprequest,
 	[ConfigureRequest] = configurerequest,
 	[ButtonPress] = buttonpress,
+	[Expose] = expose,
 };
+
 
 typedef struct Client Client;
 struct Client {
 	Window window;
 	Client* next;
 };
+typedef struct Root Root;
+struct Root {
+	unsigned int w, h;
+	int x, y;
+	Window win;
+	Window bar;
+	GC gc;
+};
+Root* root;
+
 
 static Client* head;
 void pop(Client* c);
@@ -86,8 +95,12 @@ void configurerequest(XEvent* ev) {
 
 }
 
+void expose(XEvent *ev) {
+}
+
 void buttonpress(XEvent* ev) {
 }
+
 
 void push(Client* c) {
 	if (!head) {head = c; return;}
@@ -105,11 +118,10 @@ Client* newclient(Window w) {
 
 Client* getclient(Window w) {
 	Client* c = head;
-	do {
+	do { 
 		if (c->window == w) return c;
 	} while (c = c->next);
 	return NULL;
-
 }
 
 void pop(Client* c) {
@@ -125,9 +137,9 @@ void tile() {
 	Client* c = head;
 	while (c = c->next) i++;
 	if (i == 1)
-		XMoveResizeWindow(dpy, head->window, 0, 0, XDisplayWidth(dpy, scrn), XDisplayHeight(dpy, scrn)-20);
+		XMoveResizeWindow(dpy, head->window, 0, 0, XDisplayWidth(dpy, scrn), XDisplayHeight(dpy, scrn)-28);
 	else if (i == 2) {
-		XMoveResizeWindow(dpy, head->window, 0, 0, XDisplayWidth(dpy, scrn)/2, XDisplayHeight(dpy, scrn)-20);
+		XMoveResizeWindow(dpy, head->window, 0, 0, XDisplayWidth(dpy, scrn)/2, XDisplayHeight(dpy, scrn)-28);
 		XMoveResizeWindow(dpy, head->next->window, XDisplayWidth(dpy, scrn)/2, 0, XDisplayWidth(dpy, scrn)/2, XDisplayHeight(dpy, scrn)-20);
 	}
 }
@@ -135,25 +147,26 @@ void tile() {
 void init() {
 	XInitThreads();
 	if(!(dpy = XOpenDisplay(NULL))) exit(EXIT_FAILURE);
-	root = DefaultRootWindow(dpy);
 	scrn = DefaultScreen(dpy);
-	//XGrabButton(dpy, 3, None, root, True, ButtonPressMask, GrabModeAsync,
-	//		GrabModeAsync, None, None);
-	//XGrabButton(dpy, 1, None, root, True, ButtonPressMask, GrabModeAsync,
-	//		GrabModeAsync, None, None);
-	XSelectInput(dpy, root, SubstructureRedirectMask); 
-	XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym("c")), ShiftMask|Mod1Mask, root, True, GrabModeAsync, GrabModeAsync);
+	root = (Root*)malloc(sizeof(Root));
+	root->win = DefaultRootWindow(dpy);
+	root->x = 0; root->y = 0;
+	root->w = XDisplayWidth(dpy, scrn);
+	root->h = XDisplayHeight(dpy, scrn) - 20;
+	bar_init(dpy, root->win);
+	XSelectInput(dpy, root->win, SubstructureRedirectMask);
+	XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym("c")), ShiftMask|Mod1Mask, root->win, True, GrabModeAsync, GrabModeAsync);
 }
 
 void loop() {
 	XEvent ev;
 	while(!XNextEvent(dpy, &ev)) {
-		printf("\n%d\n", ev.type);
+		bar_printf(0, "%d", ev.type);
 		if (handler[ev.type]) handler[ev.type](&ev);
 	}
 }
 
 int main() {
-	init();
+	init();	
 	loop();
 }
